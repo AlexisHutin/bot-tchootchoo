@@ -1,1 +1,1 @@
-The famous Tchoo Tchoo bot for ASCR handball
+The famous Tchoo Tchoo Bot for ASCR handball
