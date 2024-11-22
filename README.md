@@ -9,5 +9,5 @@ The famous Tchoo Tchoo Bot for ASCR handball
 - [ ] Slack message
 - [ ] Discord Log (shouterr, slack too ?)
 - [ ] Variablalize slack reciever & sheet ID
-- [ ] Cron : tuesday & thursday
+- [ ] Cron : tuesday & thursday, men and women
 - [ ] Dockerize shit
