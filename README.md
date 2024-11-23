@@ -10,6 +10,8 @@ The famous Tchoo Tchoo Bot for ASCR handball
 - [ ] Discord Log (shouterr, slack too ?)
 - [ ] Variablalize slack reciever & sheet ID
 - [ ] Cron : tuesday & thursday, men and women
+  - Dockerfile : ADD hello-cron /etc/cronjob; RUN crontab /etc/cronjob 
 - [ ] Dockerize shit
 - [ ] Documentation
 - [ ] Get next match houre, team, place if we play (maybe a message when there is no match)
+- [ ] CI/CD Github action

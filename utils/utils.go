@@ -2,7 +2,7 @@ package utils
 
 import "time"
 
-// Return the next weejend date formated like this dd/mm
+// Return the next weekend date formated like this dd/mm
 func GetNextWeekendDate() string {
 	today := time.Now()
 	daysUntilSaturday := (6 - int(today.Weekday()) + 7) % 7

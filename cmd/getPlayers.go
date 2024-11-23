@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/AlexisHutin/bot-tchootchoo/services/sheet"
+	"github.com/AlexisHutin/bot-tchootchoo/services/slack"
 	"github.com/AlexisHutin/bot-tchootchoo/utils"
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,8 @@ import (
 func init() {
 	RootCmd.AddCommand(getPlayers)
 }
+
+var slackUser string = "U05LM40BMS9"
 
 var getPlayers = &cobra.Command{
 	Use:   "get-players",
@@ -40,5 +43,15 @@ var getPlayers = &cobra.Command{
 		fmt.Println(nextWeekend, playersNumber, availablePlayers)
 
 		// SLACK
+		slackService, err := slack.NewSlackCLient(ctx)
+		messageData := slack.MessageData{
+			UserID: slackUser,
+			Body: slack.MessageBody{
+				MatchDate: nextWeekend,
+				PlayersList: availablePlayers,
+			},
+		}
+
+		slackService.SendMessage(ctx, messageData)
 	},
 }

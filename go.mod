@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/slack-go/slack v0.15.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	google.golang.org/api v0.171.0
@@ -23,6 +24,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.3 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
