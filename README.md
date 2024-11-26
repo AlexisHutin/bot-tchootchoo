@@ -6,7 +6,7 @@ The famous Tchoo Tchoo Bot for ASCR handball
 
 ## Todo :
 - [x] Split into services, sheet, slack, discord, ...
-- [ ] Slack message
+- [x] Slack message
 - [ ] Discord Log (shouterr, slack too ?)
 - [ ] Variablalize slack reciever & sheet ID
 - [ ] Cron : tuesday & thursday, men and women
