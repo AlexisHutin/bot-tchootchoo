@@ -8,20 +8,21 @@ import (
 	"strings"
 
 	"github.com/AlexisHutin/bot-tchootchoo/utils"
+	"github.com/AlexisHutin/bot-tchootchoo/types"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
 
 var (
 	sheetsAPIKey  string = os.Getenv("SHEET_API_KEY")
-	spreadsheetID string = os.Getenv("SPREADSHEET_ID")
 )
 
 type Service struct {
 	Sheet *sheets.Service
+	Config types.SheetEntry
 }
 
-func NewSheetClient(ctx context.Context) (*Service, error) {
+func NewSheetClient(ctx context.Context, config types.SheetEntry) (*Service, error) {
 	sheetService, err := sheets.NewService(ctx, option.WithAPIKey(sheetsAPIKey))
 	if err != nil {
 		fmt.Printf("Error : %s", err)
@@ -30,6 +31,7 @@ func NewSheetClient(ctx context.Context) (*Service, error) {
 	
 	service := &Service{
 		Sheet: sheetService,
+		Config: config,
 	}
 
 	return service, nil
@@ -46,7 +48,7 @@ func (s *Service) GetAvailablePlayers() ([]string, error) {
 	row := s.getNextWeekendRow()
 	sheetRange := fmt.Sprintf("%v:%v", *row, *row)
 
-	resp, err := s.Sheet.Spreadsheets.Values.Get(spreadsheetID, sheetRange).Do()
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, sheetRange).Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
 	}
@@ -87,7 +89,7 @@ func (s *Service) getNextWeekendRow() *int {
 
 // Return all week ends list
 func (s *Service) getDateList() (map[int]string, error) {
-	resp, err := s.Sheet.Spreadsheets.Values.Get(spreadsheetID, "A:A").Do()
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "A:A").Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
 	}
@@ -112,7 +114,7 @@ func (s *Service) getDateList() (map[int]string, error) {
 
 // Return list of all players
 func (s *Service) getPlayersList() (map[int]string, error) {
-	resp, err := s.Sheet.Spreadsheets.Values.Get(spreadsheetID, "3:3").Do()
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "3:3").Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
 	}

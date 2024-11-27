@@ -1,0 +1,37 @@
+sheet: 
+  men:
+    id: ""
+  women:
+    id: ""
+
+slack:
+  users:
+    coachs:
+      men:
+        - name: ""
+          id: ""
+      women:
+        - name: ""
+          id: ""
+      test:
+        - name: ""
+          id: ""
+  message:
+    common:
+      header:
+        type: ""
+        text: ""
+      end:
+        type: ""
+        text: ""
+      help:
+        type: ""
+        text: ""
+    men:
+      list:
+        type: ""
+        text: ""
+    women:
+      list:
+        type: ""
+        text: ""

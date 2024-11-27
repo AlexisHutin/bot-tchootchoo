@@ -8,7 +8,7 @@ The famous Tchoo Tchoo Bot for ASCR handball
 - [x] Split into services, sheet, slack, discord, ...
 - [x] Slack message
 - [ ] Discord Log (shouterr, slack too ?)
-- [ ] Variablalize slack reciever & sheet ID
+- [x] Variablalize slack reciever & sheet ID
 - [ ] Cron : tuesday & thursday, men and women
   - Dockerfile : ADD hello-cron /etc/cronjob; RUN crontab /etc/cronjob 
 - [ ] Dockerize shit
