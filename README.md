@@ -15,3 +15,6 @@ The famous Tchoo Tchoo Bot for ASCR handball
 - [ ] Documentation
 - [ ] Get next match houre, team, place if we play (maybe a message when there is no match)
 - [ ] CI/CD Github action
+- [ ] New commands :
+  - Get last weekend stats (need to be sure that there is a least one match this weekend): score, players stats... (An AI comments about the weekend)
+  - ?
