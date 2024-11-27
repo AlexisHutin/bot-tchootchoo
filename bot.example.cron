@@ -1,0 +1,11 @@
+# Men team: 
+# Every tuesday
+0 16 * * 2 /your/path/to/tchootchoo/tchootchoo get-players -m > /your/path/to/tchootchoo.log 2>&1
+# Every thursday
+0 16 * * 4 /your/path/to/tchootchoo/tchootchoo get-players -m > /your/path/to/tchootchoo.log 2>&1
+
+# Women team: 
+# Every tuesday
+0 16 * * 2 /your/path/to/tchootchoo/tchootchoo get-players -w > /your/path/to/tchootchoo.log 2>&1
+# Every thursday
+0 16 * * 4 /your/path/to/tchootchoo/tchootchoo get-players -w > /your/path/to/tchootchoo.log 2>&1

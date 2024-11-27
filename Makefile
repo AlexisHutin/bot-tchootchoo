@@ -5,6 +5,7 @@ export $(shell sed 's/=.*//' .env)
 BINARY_NAME=tchootchoo
 BUILD_DIR=./build
 CONFIG_FILE=config.yml
+CRONTAB_FILE=bot.cron
 ENV_FILE=.env
 BIN_PATH=$(BUILD_DIR)/$(BINARY_NAME)
 
@@ -27,6 +28,12 @@ upload:
 	scp -i $(SSH_KEY) $(CONFIG_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
 	scp -i $(SSH_KEY) $(ENV_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
 	@echo "Upload complete."
+
+	@echo "Uploading crontab file to the remote server..."
+	scp -i $(SSH_KEY) $(CRONTAB_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)/$(CRONTAB_FILE)
+	@echo "Adding crontab to the server..."
+	ssh -i $(SSH_KEY) $(SSH_USER)@$(SSH_HOST) "crontab $(REMOTE_DIR)/$(CRONTAB_FILE)"
+	@echo "Crontab added successfully!"
 
 # Clean the build directory
 clean:
