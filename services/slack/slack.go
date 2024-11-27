@@ -21,6 +21,9 @@ var (
 
 	msgEndSectionType string = "plain_text"
 	msgEndSectionText string = "Tchoo Tchoo !"
+
+	msgContextType string = "mrkdwn"
+	msgContextText string = "🚂 _*Un souci ou une question ?* Pas de panique ! Les pros sont là pour t'aider : rendez-vous <https://ascrhand.slack.com/archives/C082SC0DX36|ici>_"
 )
 
 type Service struct {
@@ -92,17 +95,23 @@ func messageBuilder(body MessageBody) ([]slack.Block, error) {
 	endField := slack.NewTextBlockObject(msgEndSectionType, msgEndSectionText, false, false)
 	endSection := slack.NewSectionBlock(endField, nil, nil)
 
+	// Context (assistance link)
+	contextField := slack.NewTextBlockObject(msgContextType, msgContextText, false, false)
+	contextSection := slack.NewSectionBlock(contextField, nil, nil)
+
 	// Put message together
 	messageBlocks := make([]slack.Block, 0)
 	messageBlocks = append(messageBlocks, headerSection)
 	messageBlocks = append(messageBlocks, listSection)
 	messageBlocks = append(messageBlocks, endSection)
+	messageBlocks = append(messageBlocks, contextSection)
 
 	// Log
 	messageJson := slack.NewBlockMessage(
 		headerSection,
 		listSection,
 		endSection,
+		contextSection,
 	)
 	
 	message, err := json.MarshalIndent(messageJson, "", "	")
