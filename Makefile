@@ -1,14 +1,17 @@
+include .env
+export $(shell sed 's/=.*//' .env)
+
 # Variables
-APP_NAME := tchootchoo
-BUILD_DIR := build
-BIN_PATH := $(BUILD_DIR)/$(APP_NAME)
-REMOTE_USER := username               # Nom d'utilisateur SSH sur la machine distante
-REMOTE_HOST := 192.168.x.x           # Adresse IP de la machine distante
-REMOTE_DIR := /path/to/deploy/dir    # Répertoire sur la machine distante où le binaire sera copié
-SSH_KEY := ~/.ssh/id_rsa             # Clé privée SSH à utiliser
+BINARY_NAME=tchootchoo
+BUILD_DIR=./build
+CONFIG_FILE=config.yml
+ENV_FILE=.env
+BIN_PATH=$(BUILD_DIR)/$(BINARY_NAME)
 
 # Default target
 all: build upload
+
+.PHONY: build upload clean deploy
 
 # Build the Go binary
 build:
@@ -18,9 +21,11 @@ build:
 	@echo "Build complete: $(BIN_PATH)"
 
 # Upload the binary to the remote machine
-upload: build
-	@echo "Uploading the binary to $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_DIR)..."
-	scp -i $(SSH_KEY) $(BIN_PATH) $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_DIR)
+upload:
+	@echo "Uploading the binary to the remote server..."
+	scp -i $(SSH_KEY) $(BUILD_DIR)/$(BINARY_NAME) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
+	scp -i $(SSH_KEY) $(CONFIG_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
+	scp -i $(SSH_KEY) $(ENV_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
 	@echo "Upload complete."
 
 # Clean the build directory
@@ -29,10 +34,5 @@ clean:
 	rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
 
-# Run the binary on the remote server
-remote-run: upload
-	@echo "Running the binary on the remote server..."
-	ssh -i $(SSH_KEY) $(REMOTE_USER)@$(REMOTE_HOST) "cd $(REMOTE_DIR) && ./$(APP_NAME)"
-
 # Full pipeline: Build, upload, and run
-deploy: build upload remote-run
+deploy: build upload
