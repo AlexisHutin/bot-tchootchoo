@@ -4,22 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/AlexisHutin/bot-tchootchoo/types"
 	"github.com/slack-go/slack"
-	"gopkg.in/yaml.v3"
-)
-
-var (
-	slackToken string = os.Getenv("SLACK_API_TOKEN")
-	configFile string = "config.yml"
 )
 
 type Service struct {
-	Slack  *slack.Client
-	Config Config
+	Slack         *slack.Client
+	Config        Config
 }
 
 type Config struct {
@@ -28,22 +21,19 @@ type Config struct {
 	MessageCommon *types.SlackMessageCommon
 }
 
-func NewSlackCLient(ctx context.Context, users []types.SlackUser, messageBody types.SlackMessageList) (*Service, error) {
-	slackService := slack.New(slackToken)
-	messageCommon, err := loadSlackCommonMessageConfig(configFile)
-	if err != nil {
-		fmt.Printf("Error : %s", err)
-		return nil, err
-	}
+func NewSlackCLient(ctx context.Context, globalConfig *types.Config, users []types.SlackUser, messageBody types.SlackMessageList) (*Service, error) {
+	slackAPIKey := globalConfig.Slack.APIKey
+	slackService := slack.New(slackAPIKey)
+	messageCommon := globalConfig.Slack.Message.Common
 
 	config := Config{
 		Users:         users,
 		MessageBody:   messageBody,
-		MessageCommon: messageCommon,
+		MessageCommon: &messageCommon,
 	}
 	service := &Service{
-		Slack:  slackService,
-		Config: config,
+		Slack:         slackService,
+		Config:        config,
 	}
 
 	return service, nil
@@ -67,6 +57,7 @@ type MessageData struct {
 
 type MessageBody struct {
 	MatchDate   string
+	MatchInfo   map[string]string
 	PlayersList []string
 }
 
@@ -93,6 +84,12 @@ func (s *Service) messageBuilder(body MessageBody) ([]slack.Block, error) {
 	headerText := slack.NewTextBlockObject(s.Config.MessageCommon.Header.Type, headerMsg, false, false)
 	headerSection := slack.NewHeaderBlock(headerText)
 
+	// Match Info block
+
+	matchInfoMsg := fmt.Sprintf(s.Config.MessageCommon.MatchInfo.Text, string(body.MatchInfo["team_1"]), string(body.MatchInfo["team_2"]))
+	matchInfoTxt := slack.NewTextBlockObject(s.Config.MessageCommon.MatchInfo.Type, matchInfoMsg, false, false)
+	matchInfoSection := slack.NewSectionBlock(matchInfoTxt, nil, nil)
+
 	// Body
 	playersListStr := strings.Join(body.PlayersList, ", ")
 	playersListLen := len(body.PlayersList)
@@ -111,6 +108,7 @@ func (s *Service) messageBuilder(body MessageBody) ([]slack.Block, error) {
 	// Put message together
 	messageBlocks := make([]slack.Block, 0)
 	messageBlocks = append(messageBlocks, headerSection)
+	messageBlocks = append(messageBlocks, matchInfoSection)
 	messageBlocks = append(messageBlocks, listSection)
 	messageBlocks = append(messageBlocks, endSection)
 	messageBlocks = append(messageBlocks, contextSection)
@@ -118,6 +116,7 @@ func (s *Service) messageBuilder(body MessageBody) ([]slack.Block, error) {
 	// Log
 	messageJson := slack.NewBlockMessage(
 		headerSection,
+		matchInfoSection,
 		listSection,
 		endSection,
 		contextSection,
@@ -132,20 +131,4 @@ func (s *Service) messageBuilder(body MessageBody) ([]slack.Block, error) {
 	fmt.Println(string(message))
 
 	return messageBlocks, nil
-}
-
-func loadSlackCommonMessageConfig(filePath string) (*types.SlackMessageCommon, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("error opening config file: %v", err)
-	}
-	defer file.Close()
-
-	var config types.Config
-	decoder := yaml.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		return nil, fmt.Errorf("error decoding config file: %v", err)
-	}
-
-	return &config.Slack.Message.Common, nil
 }

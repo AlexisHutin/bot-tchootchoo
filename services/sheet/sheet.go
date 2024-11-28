@@ -4,39 +4,50 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
+	"reflect"
 	"strings"
 
-	"github.com/AlexisHutin/bot-tchootchoo/utils"
 	"github.com/AlexisHutin/bot-tchootchoo/types"
+	"github.com/AlexisHutin/bot-tchootchoo/utils"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
 
 var (
-	sheetsAPIKey  string = os.Getenv("SHEET_API_KEY")
+	teamOneCol string = "B"
+	teamTwoCol string = "C"
+
+	Home types.RGB
+	Away types.RGB
+	Cup  types.RGB
 )
 
 type Service struct {
-	Sheet *sheets.Service
+	Sheet  *sheets.Service
 	Config types.SheetEntry
 }
 
-func NewSheetClient(ctx context.Context, config types.SheetEntry) (*Service, error) {
+func NewSheetClient(ctx context.Context, globalConfig *types.Config, config types.SheetEntry) (*Service, error) {
+	sheetsAPIKey := globalConfig.Sheet.APIKey
 	sheetService, err := sheets.NewService(ctx, option.WithAPIKey(sheetsAPIKey))
 	if err != nil {
 		fmt.Printf("Error : %s", err)
 		return nil, err
 	}
-	
+
 	service := &Service{
-		Sheet: sheetService,
+		Sheet:  sheetService,
 		Config: config,
 	}
+
+	Home = globalConfig.Sheet.CellTypeColor.Home
+	Away = globalConfig.Sheet.CellTypeColor.Away
+	Cup = globalConfig.Sheet.CellTypeColor.Cup
 
 	return service, nil
 }
 
+// === PLAYERS LIST === //
 // Return list of available players this weekend
 func (s *Service) GetAvailablePlayers() ([]string, error) {
 
@@ -66,25 +77,6 @@ func (s *Service) GetAvailablePlayers() ([]string, error) {
 		}
 	}
 	return availablePlayers, nil
-}
-
-// Return next week end row nomber
-func (s *Service) getNextWeekendRow() *int {
-	dateList, err := s.getDateList()
-	if err != nil {
-		fmt.Printf("Error : %s", err)
-		return nil
-	}
-
-	nextWeekend := utils.GetNextWeekendDate()
-
-	for key, date := range dateList {
-		if date == nextWeekend {
-			return &key
-		}
-	}
-
-	return nil
 }
 
 // Return all week ends list
@@ -134,4 +126,73 @@ func (s *Service) getPlayersList() (map[int]string, error) {
 	}
 
 	return players, nil
+}
+
+// === MATCH INFO === //
+func (s *Service) GetMatchInfo() (map[string]string, error) {
+	nextWeekendRow := s.getNextWeekendRow()
+	sheetRange := fmt.Sprintf("%v%v:%v%v", teamOneCol, *nextWeekendRow, teamTwoCol, *nextWeekendRow)
+	resp, err := s.Sheet.Spreadsheets.Get(s.Config.ID).IncludeGridData(true).Ranges(sheetRange).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
+	}
+
+	// Get cells value & format (here background color)
+	var cellsData []types.SheetCellData
+	rawValues := resp.Sheets[0].Data[0].RowData[0].Values
+	for _, rawValue := range rawValues {
+
+		background := types.RGB{
+			Blue:  rawValue.EffectiveFormat.BackgroundColor.Blue,
+			Green: rawValue.EffectiveFormat.BackgroundColor.Green,
+			Red:   rawValue.EffectiveFormat.BackgroundColor.Red,
+		}
+
+		cell := types.SheetCellData{
+			Value:      rawValue.FormattedValue,
+			Background: background,
+		}
+
+		cellsData = append(cellsData, cell)
+	}
+
+	matchInfo := make(map[string]string)
+	for key, data := range cellsData {
+		var infoStr string
+		switch {
+		case reflect.DeepEqual(data.Background, Home):
+			infoStr = fmt.Sprintf("%v à domicile ", data.Value)
+		case reflect.DeepEqual(data.Background, Away):
+			infoStr = fmt.Sprintf("%v à l'extérieur ", data.Value)
+		case reflect.DeepEqual(data.Background, Cup):
+			infoStr = fmt.Sprintf("%v coupe de France ", data.Value)
+		default:
+			infoStr = "Pas de match"
+		}
+
+		fmt.Printf("Match found for team %v : %v\n", key+1, infoStr)
+		matchInfo[fmt.Sprintf("team_%v", key+1)] = infoStr
+	}
+
+	return matchInfo, nil
+}
+
+// === OTHER === //
+// Return next week end row nomber
+func (s *Service) getNextWeekendRow() *int {
+	dateList, err := s.getDateList()
+	if err != nil {
+		fmt.Printf("Error : %s", err)
+		return nil
+	}
+
+	nextWeekend := utils.GetNextWeekendDate()
+
+	for key, date := range dateList {
+		if date == nextWeekend {
+			return &key
+		}
+	}
+
+	return nil
 }

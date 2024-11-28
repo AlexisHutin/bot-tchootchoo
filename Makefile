@@ -26,7 +26,6 @@ upload:
 	@echo "Uploading the binary to the remote server..."
 	scp -i $(SSH_KEY) $(BUILD_DIR)/$(BINARY_NAME) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
 	scp -i $(SSH_KEY) $(CONFIG_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
-	scp -i $(SSH_KEY) $(ENV_FILE) $(SSH_USER)@$(SSH_HOST):$(REMOTE_DIR)
 	@echo "Upload complete."
 
 	@echo "Uploading crontab file to the remote server..."

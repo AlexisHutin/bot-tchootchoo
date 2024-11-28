@@ -10,7 +10,7 @@ The famous Tchoo Tchoo Bot for ASCR handball
 - [x] Variablalize slack reciever & sheet ID
 - [x] CI/CD, build & deploy with Makefile (Won't do with github action because my server is local)
 - [x] Cron : tuesday & thursday, men and women
-- [ ] Get next match houre, team, place if we play (maybe a message when there is no match)
+- [x] Get next match houre, team, place if we play (maybe a message when there is no match)
 - [ ] Discord Log (shouterr, slack too ?)
 - [ ] Documentation
 - [ ] New commands :

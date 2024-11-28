@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/AlexisHutin/bot-tchootchoo/services/sheet"
 	"github.com/AlexisHutin/bot-tchootchoo/services/slack"
@@ -14,11 +15,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var configFile string = "config.yml"
+var configFile string
 var menFlag, womenFlag, testFlag bool
 
 func init() {
 	RootCmd.AddCommand(getPlayers)
+
+	getPlayers.Flags().StringVarP(&configFile, "config", "c", "", "Path to the configuration file (required)")
+	getPlayers.MarkFlagRequired("config")
 
 	getPlayers.Flags().BoolVarP(&menFlag, "men", "m", false, "Send message to men's coaches")
 	getPlayers.Flags().BoolVarP(&womenFlag, "women", "w", false, "Send message to women's coaches")
@@ -51,9 +55,21 @@ var getPlayers = &cobra.Command{
 		}
 
 		// GOOGLE SHEET
-		sheetService, err := sheet.NewSheetClient(ctx, filteredConfig.Sheet)
+		sheetService, err := sheet.NewSheetClient(ctx, config, filteredConfig.Sheet)
 		if err != nil {
 			fmt.Printf("Error : %s", err)
+			return
+		}
+
+		matchInfo, err := sheetService.GetMatchInfo()
+		if err != nil {
+			fmt.Printf("Error : %s", err)
+			return
+		}
+
+		// No match found, no message
+		if len(matchInfo) == 0 {
+			fmt.Println("No match found")
 			return
 		}
 
@@ -67,7 +83,7 @@ var getPlayers = &cobra.Command{
 		nextWeekend := utils.GetNextWeekendDate()
 
 		// SLACK
-		slackService, err := slack.NewSlackCLient(ctx, filteredConfig.Coachs, filteredConfig.MessageBody)
+		slackService, err := slack.NewSlackCLient(ctx, config, filteredConfig.Coachs, filteredConfig.MessageBody)
 		if err != nil {
 			fmt.Printf("Error : %s", err)
 			return
@@ -78,6 +94,7 @@ var getPlayers = &cobra.Command{
 				UserID: user.ID,
 				Body: slack.MessageBody{
 					MatchDate:   nextWeekend,
+					MatchInfo:   matchInfo,
 					PlayersList: availablePlayers,
 				},
 			}
@@ -87,7 +104,11 @@ var getPlayers = &cobra.Command{
 				fmt.Printf("Error : %s", err)
 				return
 			}
+
 			fmt.Printf("Message sent to %s !\n", user.Name)
+			
+			fmt.Println("Sleeping for 5 seconds...")
+			time.Sleep(5 * time.Second)
 		}
 	},
 }
@@ -129,7 +150,6 @@ func filterConfig(config types.Config, cmd *cobra.Command) (*FilteredConfig, err
 		}
 	}
 
-	// Validation : un seul flag peut être actif
 	if activeFlags == 0 {
 		return nil, fmt.Errorf("no flag specified; please use --men, --women, or --test\n")
 	}
@@ -137,7 +157,6 @@ func filterConfig(config types.Config, cmd *cobra.Command) (*FilteredConfig, err
 		return nil, fmt.Errorf("only one flag can be used at a time; please use only one of --men, --women, or --test\n")
 	}
 
-	// Construire la configuration filtrée
 	var filteredConfig FilteredConfig
 	switch selectedGroup {
 	case "men":
