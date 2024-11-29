@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -67,9 +68,9 @@ var getPlayers = &cobra.Command{
 			return
 		}
 
-		// No match found, no message
 		if len(matchInfo) == 0 {
-			fmt.Println("No match found")
+			err := errors.New("no match cells found")
+			fmt.Printf("Error : %s", err)
 			return
 		}
 
@@ -89,7 +90,7 @@ var getPlayers = &cobra.Command{
 			return
 		}
 
-		for _, user := range filteredConfig.Coachs {
+		for key, user := range filteredConfig.Coachs {
 			messageData := slack.MessageData{
 				UserID: user.ID,
 				Body: slack.MessageBody{
@@ -107,12 +108,18 @@ var getPlayers = &cobra.Command{
 
 			fmt.Printf("Message sent to %s !\n", user.Name)
 			
-			fmt.Println("Sleeping for 5 seconds...")
-			time.Sleep(5 * time.Second)
+			// No need to sleep at last message
+			if key < len(filteredConfig.Coachs) - 1 {
+				fmt.Println("Sleeping for 5 seconds...")
+				time.Sleep(5 * time.Second)
+			}
 		}
+
+		fmt.Println("Everything's ok !!")
 	},
 }
 
+// Load configurations
 func loadConfig(filePath string) (*types.Config, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -129,6 +136,7 @@ func loadConfig(filePath string) (*types.Config, error) {
 	return &config, nil
 }
 
+// Filter config after the flag passed (men, wommen or test)
 func filterConfig(config types.Config, cmd *cobra.Command) (*FilteredConfig, error) {
 	flags := []struct {
 		name  string

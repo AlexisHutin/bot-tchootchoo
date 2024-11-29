@@ -129,6 +129,7 @@ func (s *Service) getPlayersList() (map[int]string, error) {
 }
 
 // === MATCH INFO === //
+// Return next weekend matchs informations
 func (s *Service) GetMatchInfo() (map[string]string, error) {
 	nextWeekendRow := s.getNextWeekendRow()
 	sheetRange := fmt.Sprintf("%v%v:%v%v", teamOneCol, *nextWeekendRow, teamTwoCol, *nextWeekendRow)

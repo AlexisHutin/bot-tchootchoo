@@ -12,9 +12,3 @@ type RGB struct {
 	Green float64 `yaml:"green"`
 	Red   float64 `yaml:"red"`
 }
-
-type CellTypeColor struct {
-	Home RGB `yaml:"home"`
-	Away RGB `yaml:"away"`
-	Cup  RGB `yaml:"cup"`
-}

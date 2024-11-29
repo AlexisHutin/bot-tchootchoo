@@ -42,7 +42,7 @@ func NewSlackCLient(ctx context.Context, globalConfig *types.Config, users []typ
 func (s *Service) Ping(ctx context.Context, userID string) error {
 	user, err := s.Slack.GetUserInfo(userID)
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		fmt.Printf("Error: %s\n", err)
 		return err
 	}
 
