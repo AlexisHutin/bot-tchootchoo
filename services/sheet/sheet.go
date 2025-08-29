@@ -13,7 +13,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// Colonnes fixes
+// Fixed columns
 const (
 	teamOneCol = "B"
 	teamTwoCol = "C"
@@ -30,7 +30,7 @@ type Service struct {
 	Config types.SheetEntry
 }
 
-// --- INIT --- //
+// Create a new Google Sheets client with provided configuration
 func NewSheetClient(ctx context.Context, globalConfig *types.Config, config types.SheetEntry) (*Service, error) {
 	sheetService, err := sheets.NewService(ctx, option.WithAPIKey(globalConfig.Sheet.APIKey))
 	if err != nil {
@@ -44,8 +44,7 @@ func NewSheetClient(ctx context.Context, globalConfig *types.Config, config type
 	return &Service{Sheet: sheetService, Config: config}, nil
 }
 
-// --- PLAYERS --- //
-// Retourne la liste de tous les joueurs
+// Fetch the complete list of players from the sheet
 func (s *Service) getPlayersList() ([]string, error) {
 	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "3:3").Do()
 	if err != nil {
@@ -62,7 +61,7 @@ func (s *Service) getPlayersList() ([]string, error) {
 			if !ok || val == "" {
 				continue
 			}
-			// On saute les 2 premières colonnes
+			// Skip first two columns
 			if idx >= 2 {
 				players = append(players, val)
 			}
@@ -71,7 +70,7 @@ func (s *Service) getPlayersList() ([]string, error) {
 	return players, nil
 }
 
-// Retourne la liste des joueurs disponibles le prochain WE
+// Fetch the list of players available for the next weekend
 func (s *Service) GetAvailablePlayers() ([]string, error) {
 	players, err := s.getPlayersList()
 	if err != nil {
@@ -107,7 +106,7 @@ func (s *Service) GetAvailablePlayers() ([]string, error) {
 	return available, nil
 }
 
-// --- DATES --- //
+// Fetch the list of all dates from the sheet
 func (s *Service) getDateList() ([]string, error) {
 	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "A:A").Do()
 	if err != nil {
@@ -131,6 +130,7 @@ func (s *Service) getDateList() ([]string, error) {
 	return dates, nil
 }
 
+// Find the row number corresponding to the next weekend date
 func (s *Service) getNextWeekendRow() *int {
 	dates, err := s.getDateList()
 	if err != nil {
@@ -141,14 +141,14 @@ func (s *Service) getNextWeekendRow() *int {
 	next := utils.GetNextWeekendDate()
 	for i, date := range dates {
 		if date == next {
-			row := i + 2 // +2 car on a skip header et index 0-based
+			row := i + 2 // +2 because of header and 0-based index
 			return &row
 		}
 	}
 	return nil
 }
 
-// --- MATCH --- //
+// Fetch match information for the next weekend (home/away/cup)
 func (s *Service) GetMatchInfo() (map[string]string, error) {
 	row := s.getNextWeekendRow()
 	if row == nil {
@@ -176,13 +176,13 @@ func (s *Service) GetMatchInfo() (map[string]string, error) {
 
 		switch {
 		case reflect.DeepEqual(bg, Home):
-			info = fmt.Sprintf("%s à domicile", value)
+			info = fmt.Sprintf("%s at home", value)
 		case reflect.DeepEqual(bg, Away):
-			info = fmt.Sprintf("%s à l'extérieur", value)
+			info = fmt.Sprintf("%s away", value)
 		case reflect.DeepEqual(bg, Cup):
-			info = fmt.Sprintf("%s coupe de France", value)
+			info = fmt.Sprintf("%s French Cup", value)
 		default:
-			info = "Pas de match"
+			info = "No match"
 		}
 
 		matchInfo[fmt.Sprintf("team_%d", idx+1)] = info
