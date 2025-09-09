@@ -13,13 +13,10 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// Fixed columns
-const (
-	teamOneCol = "B"
-	teamTwoCol = "C"
-)
-
 var (
+	teamOneCol string = "B"
+	teamTwoCol string = "C"
+
 	Home types.RGB
 	Away types.RGB
 	Cup  types.RGB
@@ -30,162 +27,174 @@ type Service struct {
 	Config types.SheetEntry
 }
 
-// Create a new Google Sheets client with provided configuration
 func NewSheetClient(ctx context.Context, globalConfig *types.Config, config types.SheetEntry) (*Service, error) {
-	sheetService, err := sheets.NewService(ctx, option.WithAPIKey(globalConfig.Sheet.APIKey))
+	sheetsAPIKey := globalConfig.Sheet.APIKey
+	sheetService, err := sheets.NewService(ctx, option.WithAPIKey(sheetsAPIKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create sheet service: %w", err)
+		fmt.Printf("Error : %s", err)
+		return nil, err
+	}
+
+	service := &Service{
+		Sheet:  sheetService,
+		Config: config,
 	}
 
 	Home = globalConfig.Sheet.CellTypeColor.Home
 	Away = globalConfig.Sheet.CellTypeColor.Away
 	Cup = globalConfig.Sheet.CellTypeColor.Cup
 
-	return &Service{Sheet: sheetService, Config: config}, nil
+	return service, nil
 }
 
-// Fetch the complete list of players from the sheet
-func (s *Service) getPlayersList() ([]string, error) {
-	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "3:3").Do()
+// === PLAYERS LIST === //
+// Return list of available players this weekend
+func (s *Service) GetAvailablePlayers() ([]string, error) {
+
+	playersList, err := s.getPlayersList()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch players list: %w", err)
-	}
-	if len(resp.Values) == 0 {
-		return nil, nil
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
 	}
 
-	var players []string
-	for _, row := range resp.Values {
-		for idx, cell := range row {
-			val, ok := cell.(string)
-			if !ok || val == "" {
-				continue
-			}
-			// Skip first two columns
-			if idx >= 2 {
-				players = append(players, val)
+	row := s.getNextWeekendRow()
+	sheetRange := fmt.Sprintf("%v:%v", *row, *row)
+
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, sheetRange).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
+	}
+
+	var availablePlayers []string
+	if len(resp.Values) == 0 {
+		fmt.Println("No data found.")
+	} else {
+		var value string
+		for key, player := range playersList {
+			value = strings.TrimSpace(resp.Values[0][key].(string))
+			if value == "x" || value == "X" {
+				availablePlayers = append(availablePlayers, player)
 			}
 		}
 	}
+	return availablePlayers, nil
+}
+
+// Return all week ends list
+func (s *Service) getDateList() (map[int]string, error) {
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "A:A").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
+	}
+
+	var dateMap = make(map[int]string)
+
+	if len(resp.Values) == 0 {
+		fmt.Println("No data found.")
+	} else {
+		for key, row := range resp.Values {
+			for _, cell := range row {
+				cellString := cell.(string)
+				dateMap[key+1] = cellString
+			}
+		}
+	}
+
+	delete(dateMap, 1)
+
+	return dateMap, nil
+}
+
+// Return list of all players
+func (s *Service) getPlayersList() (map[int]string, error) {
+	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "3:3").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
+	}
+
+	var players = make(map[int]string)
+	if len(resp.Values) == 0 {
+		fmt.Println("No data found.")
+	} else {
+		for _, row := range resp.Values {
+			for key, cell := range row {
+				if cell != nil && cell != "" {
+					cellString := cell.(string)
+					players[key] = cellString
+				}
+			}
+		}
+	}
+
 	return players, nil
 }
 
-// Fetch the list of players available for the next weekend
-func (s *Service) GetAvailablePlayers() ([]string, error) {
-	players, err := s.getPlayersList()
+// === MATCH INFO === //
+// Return next weekend matchs informations
+func (s *Service) GetMatchInfo() (map[string]string, error) {
+	nextWeekendRow := s.getNextWeekendRow()
+	sheetRange := fmt.Sprintf("%v%v:%v%v", teamOneCol, *nextWeekendRow, teamTwoCol, *nextWeekendRow)
+	resp, err := s.Sheet.Spreadsheets.Get(s.Config.ID).IncludeGridData(true).Ranges(sheetRange).Do()
 	if err != nil {
-		return nil, err
-	}
-	if len(players) == 0 {
-		return nil, nil
+		log.Fatalf("Unable to retrieve data from sheet: %+v", err)
 	}
 
-	row := s.getNextWeekendRow()
-	if row == nil {
-		return nil, fmt.Errorf("no weekend row found")
-	}
+	// Get cells value & format (here background color)
+	var cellsData []types.SheetCellData
+	rawValues := resp.Sheets[0].Data[0].RowData[0].Values
+	for _, rawValue := range rawValues {
 
-	sheetRange := fmt.Sprintf("%d:%d", *row, *row)
-	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, sheetRange).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch availability: %w", err)
-	}
-	if len(resp.Values) == 0 {
-		return nil, nil
-	}
-
-	var available []string
-	for idx, player := range players {
-		if idx < len(resp.Values[0]) {
-			value, ok := resp.Values[0][idx].(string)
-			if ok && (strings.EqualFold(value, "x")) {
-				available = append(available, player)
-			}
+		background := types.RGB{
+			Blue:  rawValue.EffectiveFormat.BackgroundColor.Blue,
+			Green: rawValue.EffectiveFormat.BackgroundColor.Green,
+			Red:   rawValue.EffectiveFormat.BackgroundColor.Red,
 		}
+
+		cell := types.SheetCellData{
+			Value:      rawValue.FormattedValue,
+			Background: background,
+		}
+
+		cellsData = append(cellsData, cell)
 	}
-	return available, nil
+
+	matchInfo := make(map[string]string)
+	for key, data := range cellsData {
+		log.Printf("cell color : %v", data.Background)
+		var infoStr string
+		switch {
+		case reflect.DeepEqual(data.Background, Home):
+			infoStr = fmt.Sprintf("%v à domicile ", data.Value)
+		case reflect.DeepEqual(data.Background, Away):
+			infoStr = fmt.Sprintf("%v à l'extérieur ", data.Value)
+		case reflect.DeepEqual(data.Background, Cup):
+			infoStr = fmt.Sprintf("%v coupe de France ", data.Value)
+		default:
+			infoStr = "Pas de match"
+		}
+
+		fmt.Printf("Match found for team %v : %v\n", key+1, infoStr)
+		matchInfo[fmt.Sprintf("team_%v", key+1)] = infoStr
+	}
+
+	return matchInfo, nil
 }
 
-// Fetch the list of all dates from the sheet
-func (s *Service) getDateList() ([]string, error) {
-	resp, err := s.Sheet.Spreadsheets.Values.Get(s.Config.ID, "A:A").Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch dates: %w", err)
-	}
-	if len(resp.Values) == 0 {
-		return nil, nil
-	}
-
-	var dates []string
-	for i, row := range resp.Values {
-		if i == 0 {
-			continue // skip header
-		}
-		for _, cell := range row {
-			if val, ok := cell.(string); ok && val != "" {
-				dates = append(dates, val)
-			}
-		}
-	}
-	return dates, nil
-}
-
-// Find the row number corresponding to the next weekend date
+// === OTHER === //
+// Return next week end row nomber
 func (s *Service) getNextWeekendRow() *int {
-	dates, err := s.getDateList()
+	dateList, err := s.getDateList()
 	if err != nil {
-		log.Printf("failed to fetch dates: %v", err)
+		fmt.Printf("Error : %s", err)
 		return nil
 	}
 
-	next := utils.GetNextWeekendDate()
-	for i, date := range dates {
-		if date == next {
-			row := i + 2 // +2 because of header and 0-based index
-			return &row
+	nextWeekend := utils.GetNextWeekendDate()
+
+	for key, date := range dateList {
+		if date == nextWeekend {
+			return &key
 		}
 	}
+
 	return nil
-}
-
-// Fetch match information for the next weekend (home/away/cup)
-func (s *Service) GetMatchInfo() (map[string]string, error) {
-	row := s.getNextWeekendRow()
-	if row == nil {
-		return nil, fmt.Errorf("no next weekend row found")
-	}
-
-	sheetRange := fmt.Sprintf("%s%d:%s%d", teamOneCol, *row, teamTwoCol, *row)
-	resp, err := s.Sheet.Spreadsheets.Get(s.Config.ID).IncludeGridData(true).Ranges(sheetRange).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch match info: %w", err)
-	}
-
-	rawValues := resp.Sheets[0].Data[0].RowData[0].Values
-	matchInfo := make(map[string]string, len(rawValues))
-
-	for idx, raw := range rawValues {
-		bg := types.RGB{
-			Red:   raw.EffectiveFormat.BackgroundColor.Red,
-			Green: raw.EffectiveFormat.BackgroundColor.Green,
-			Blue:  raw.EffectiveFormat.BackgroundColor.Blue,
-		}
-
-		value := raw.FormattedValue
-		var info string
-
-		switch {
-		case reflect.DeepEqual(bg, Home):
-			info = fmt.Sprintf("%s at home", value)
-		case reflect.DeepEqual(bg, Away):
-			info = fmt.Sprintf("%s away", value)
-		case reflect.DeepEqual(bg, Cup):
-			info = fmt.Sprintf("%s French Cup", value)
-		default:
-			info = "No match"
-		}
-
-		matchInfo[fmt.Sprintf("team_%d", idx+1)] = info
-	}
-	return matchInfo, nil
 }
