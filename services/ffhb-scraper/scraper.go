@@ -125,7 +125,9 @@ var months = []string{"janvier", "février", "mars", "avril", "mai", "juin",
 // Teams to scrape
 var teamConfigs = []TeamConfig{
 	{"ASC Rennais 1", "regional/16-ans-excellence-masculine-bretagne-27844/", "equipe-1945001/", "poule-168419/", "male", "regional_excellence"},
+	{"ASC Rennais 2", "regional/16-ans-2eme-division-territoriale-mas-p-10-27847/", "equipe-1963474/", "poule-171667/", "male", "2eme_division_territoriale"},
 	{"ASC Rennais 1", "regional/16-ans-excellence-feminine-bretagne-27853/", "equipe-1945199/", "poule-168469/", "female", "regional_excellence"},
+	{"ASC Rennais 2", "regional/16-ans-2eme-division-territoriale-feminine-p-8-28836/", "equipe-1963402/", "poule-171690/", "female", "2eme_division_territoriale"},
 }
 
 // -------------------- UTILITIES --------------------
