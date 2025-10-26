@@ -5,6 +5,7 @@ The famous Tchoo Tchoo Bot for ASCR handball
 ## How it works ?
 
 ## Todo :
+- [ ] Big Refacto
 - [x] Split into services, sheet, slack, discord, ...
 - [x] Slack message
 - [x] Variablalize slack reciever & sheet ID

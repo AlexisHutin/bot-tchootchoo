@@ -2,16 +2,19 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/AlexisHutin/bot-tchootchoo/services/sheet"
-	"github.com/AlexisHutin/bot-tchootchoo/services/slack"
+	slackpkg "github.com/AlexisHutin/bot-tchootchoo/services/slack"
 	"github.com/AlexisHutin/bot-tchootchoo/types"
 	"github.com/AlexisHutin/bot-tchootchoo/utils"
+	"github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -31,9 +34,10 @@ func init() {
 }
 
 type FilteredConfig struct {
-	Sheet       types.SheetEntry
-	Coachs      []types.SlackUser
-	MessageBody types.SlackMessageList
+	Sheet         types.SheetEntry
+	Coachs        []types.SlackUser
+	MessageBody   types.SlackMessageList
+	MessageCommon types.SlackMessageCommon
 }
 
 var getPlayers = &cobra.Command{
@@ -84,32 +88,36 @@ var getPlayers = &cobra.Command{
 		nextWeekend := utils.GetNextWeekendDate()
 
 		// SLACK
-		slackService, err := slack.NewSlackCLient(ctx, config, filteredConfig.Coachs, filteredConfig.MessageBody)
+		slackService, err := slackpkg.NewSlackCLient(ctx, config)
 		if err != nil {
 			fmt.Printf("Error : %s", err)
 			return
 		}
 
 		for key, user := range filteredConfig.Coachs {
-			messageData := slack.MessageData{
-				UserID: user.ID,
-				Body: slack.MessageBody{
-					MatchDate:   nextWeekend,
-					MatchInfo:   matchInfo,
-					PlayersList: availablePlayers,
-				},
+
+			body := MessageBody{
+				MatchDate:   nextWeekend,
+				MatchInfo:   matchInfo,
+				PlayersList: availablePlayers,
 			}
 
-			err := slackService.SendMessage(ctx, messageData)
+			blocks, err := messageBuilder(*filteredConfig, body)
+			if err != nil {
+				fmt.Printf("Error : %s", err)
+				return
+			}
+
+			err = slackService.SendMessage(ctx, user.ID, blocks)
 			if err != nil {
 				fmt.Printf("Error : %s", err)
 				return
 			}
 
 			fmt.Printf("Message sent to %s !\n", user.Name)
-			
+
 			// No need to sleep at last message
-			if key < len(filteredConfig.Coachs) - 1 {
+			if key < len(filteredConfig.Coachs)-1 {
 				fmt.Println("Sleeping for 5 seconds...")
 				time.Sleep(5 * time.Second)
 			}
@@ -169,23 +177,87 @@ func filterConfig(config types.Config, cmd *cobra.Command) (*FilteredConfig, err
 	switch selectedGroup {
 	case "men":
 		filteredConfig = FilteredConfig{
-			Sheet:       config.Sheet.Men,
-			Coachs:      config.Slack.Users.Coachs.Men,
-			MessageBody: config.Slack.Message.Men,
+			Sheet:         config.Sheet.Men,
+			Coachs:        config.Slack.Users.Coachs.Men,
+			MessageBody:   config.Slack.Message.Men,
+			MessageCommon: config.Slack.Message.Common,
 		}
 	case "women":
 		filteredConfig = FilteredConfig{
-			Sheet:       config.Sheet.Women,
-			Coachs:      config.Slack.Users.Coachs.Women,
-			MessageBody: config.Slack.Message.Women,
+			Sheet:         config.Sheet.Women,
+			Coachs:        config.Slack.Users.Coachs.Women,
+			MessageBody:   config.Slack.Message.Women,
+			MessageCommon: config.Slack.Message.Common,
 		}
 	case "test":
 		filteredConfig = FilteredConfig{
-			Sheet:       config.Sheet.Men,
-			Coachs:      config.Slack.Users.Coachs.Test,
-			MessageBody: config.Slack.Message.Men,
+			Sheet:         config.Sheet.Men,
+			Coachs:        config.Slack.Users.Coachs.Test,
+			MessageBody:   config.Slack.Message.Men,
+			MessageCommon: config.Slack.Message.Common,
 		}
 	}
 
 	return &filteredConfig, nil
+}
+
+type MessageBody struct {
+	MatchDate   string
+	MatchInfo   map[string]string
+	PlayersList []string
+}
+
+func messageBuilder(filteredConfig FilteredConfig, body MessageBody) ([]slack.Block, error) {
+	// Header
+	headerMsg := fmt.Sprintf(filteredConfig.MessageCommon.Header.Text, body.MatchDate)
+	headerText := slack.NewTextBlockObject(filteredConfig.MessageCommon.Header.Type, headerMsg, false, false)
+	headerSection := slack.NewHeaderBlock(headerText)
+
+	// Match Info block
+
+	matchInfoMsg := fmt.Sprintf(filteredConfig.MessageCommon.MatchInfo.Text, string(body.MatchInfo["team_1"]), string(body.MatchInfo["team_2"]))
+	matchInfoTxt := slack.NewTextBlockObject(filteredConfig.MessageCommon.MatchInfo.Type, matchInfoMsg, false, false)
+	matchInfoSection := slack.NewSectionBlock(matchInfoTxt, nil, nil)
+
+	// Body
+	playersListStr := strings.Join(body.PlayersList, ", ")
+	playersListLen := len(body.PlayersList)
+	listMsg := fmt.Sprintf(filteredConfig.MessageBody.List.Text, playersListLen, playersListStr)
+	listField := slack.NewTextBlockObject(filteredConfig.MessageBody.List.Type, listMsg, false, false)
+	listSection := slack.NewSectionBlock(listField, nil, nil)
+
+	// End
+	endField := slack.NewTextBlockObject(filteredConfig.MessageCommon.End.Type, filteredConfig.MessageCommon.End.Text, false, false)
+	endSection := slack.NewSectionBlock(endField, nil, nil)
+
+	// Context (assistance link)
+	contextField := slack.NewTextBlockObject(filteredConfig.MessageCommon.Help.Type, filteredConfig.MessageCommon.Help.Text, false, false)
+	contextSection := slack.NewSectionBlock(contextField, nil, nil)
+
+	// Put message together
+	messageBlocks := make([]slack.Block, 0)
+	messageBlocks = append(messageBlocks, headerSection)
+	messageBlocks = append(messageBlocks, matchInfoSection)
+	messageBlocks = append(messageBlocks, listSection)
+	messageBlocks = append(messageBlocks, endSection)
+	messageBlocks = append(messageBlocks, contextSection)
+
+	// Log
+	messageJson := slack.NewBlockMessage(
+		headerSection,
+		matchInfoSection,
+		listSection,
+		endSection,
+		contextSection,
+	)
+
+	message, err := json.MarshalIndent(messageJson, "", "	")
+	if err != nil {
+		fmt.Printf("Error : %s", err)
+		return nil, err
+	}
+
+	fmt.Println(string(message))
+
+	return messageBlocks, nil
 }
